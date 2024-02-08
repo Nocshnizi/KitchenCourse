@@ -1,0 +1,197 @@
+using Microsoft.Win32.SafeHandles;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Unity.VisualScripting;
+using UnityEngine;
+
+
+ public class Player : MonoBehaviour, IKitchenObjectParent
+{
+
+        public event EventHandler OnPickupSound;
+        public static Player Instance { get; private set; }
+
+        public event EventHandler<OnSelectedCounterChangedEventArgs> OnSelectedCounterChanged;
+        public class OnSelectedCounterChangedEventArgs : EventArgs {
+            public BaseCounter selectedCounter;
+        }
+
+
+        [SerializeField] private float moveSpeed = 10f;
+        [SerializeField] private GameInput gameInput;
+        [SerializeField] private float playerRadius = .7f;
+        [SerializeField] private float playerHeight = 2f;
+        [SerializeField] private LayerMask countersLayerMask;
+        [SerializeField] private Transform kitchenObjectHoldPoint;
+
+    private KitchenObject kitchenObject;
+    private bool isWalking; 
+    private Vector3 interactDir;
+    private BaseCounter selectedCounter;
+    
+
+    private void Awake() {
+            if (Instance != null) {
+                Debug.LogError("There are more than one Player instance");
+            }
+            Instance = this;
+        }
+
+
+        private void Start() {
+            gameInput.OnIneractAction += GameInput_OnIneractAction;
+            gameInput.OnIneractAlternateAction += GameInput_OnIneractAlternateAction;
+        }
+
+    private void GameInput_OnIneractAlternateAction(object sender, EventArgs e) {
+        if (!GameManager.Instance.IsGamePlaying()) return;
+        if (selectedCounter != null) {
+            selectedCounter.InteractAlternate(this);
+        }
+    }
+
+    private void GameInput_OnIneractAction(object sender, System.EventArgs e) {
+        if (!GameManager.Instance.IsGamePlaying()) return;
+        if(selectedCounter != null) {
+            selectedCounter.Interact(this);
+        }
+    }
+
+        // Update is called once per frame
+        private void Update(){
+
+            HandleMovement();
+            HandleInteractions();
+
+        }
+
+
+        public bool IsWalking() {
+            return isWalking;
+        }
+
+        private void HandleInteractions() {
+            Vector2 inputVector = gameInput.GetMovementVectorNormolized();
+            Vector3 moveDir = new Vector3(inputVector.x, 0f, inputVector.y);
+            float interactDistance = 2f;
+        
+            //if we stop moving we'll have interaction 
+            if (moveDir != Vector3.zero) {
+                interactDir = moveDir;
+            }
+
+            if (Physics.Raycast(transform.position, interactDir, out RaycastHit raycastHit, interactDistance, countersLayerMask)) {
+                if (raycastHit.transform.TryGetComponent(out BaseCounter baseCounter)) {
+                   
+                    if(baseCounter != selectedCounter) {
+                        SetSelectedCounter(baseCounter);
+
+                    
+                    }   
+                }else {
+                    SetSelectedCounter(null);
+                }
+            
+            } else {
+                SetSelectedCounter(null);
+            }
+
+           // Debug.Log(selectedCounter);
+        
+        }
+
+        private void HandleMovement() {
+
+            Vector2 inputVector = gameInput.GetMovementVectorNormolized();
+            Vector3 moveDir = new Vector3(inputVector.x, 0f, inputVector.y);
+
+            float moveDistance = moveSpeed * Time.deltaTime;
+            bool canMove = !Physics.CapsuleCast(transform.position, transform.position + Vector3.up * playerHeight, playerRadius, moveDir, moveDistance);
+
+            if (!canMove) {
+                //Cannot move towards moveDir
+
+                //if we cant move(collide) => create new vector with X and Z diraction 
+                Vector3 moveDirX = new Vector3(moveDir.x, 0f, 0f);
+
+                //Make them move by new only Z or X dir
+                canMove = moveDir.x != 0 && !Physics.CapsuleCast(transform.position, transform.position + Vector3.up * playerHeight, playerRadius, moveDirX, moveDistance);
+
+                if (canMove) {
+                    //Can move only in X dir
+                    moveDir = moveDirX;
+                }
+                else {
+                    Vector3 moveDirZ = new Vector3(0f, 0f, moveDir.z);
+                    canMove = moveDir.z != 0 && !Physics.CapsuleCast(transform.position, transform.position + Vector3.up * playerHeight, playerRadius, moveDirZ, moveDistance);
+
+                    if (canMove) {
+                        //Can move only in Z dir
+                        moveDir = moveDirZ;
+                    }
+                    else {
+                        //Cannot move
+                    }
+                }
+
+
+
+            }
+            if (canMove) {
+                transform.position += moveDir * moveSpeed * Time.deltaTime;
+
+            }
+            //if moveDir != Vector3.zero => isWalking = true
+            isWalking = (moveDir != Vector3.zero);
+
+
+            //rotation for player
+            float rotateSpeed = 10f;
+            transform.forward = Vector3.Slerp(transform.forward, moveDir, Time.deltaTime * rotateSpeed);
+
+        }
+
+      /*  private void OnDrawGizmosSelected() {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawSphere(transform.position, playerRadius);
+        }*/
+    
+    
+        private void SetSelectedCounter(BaseCounter selectedCounter) {
+            this.selectedCounter = selectedCounter;
+
+            OnSelectedCounterChanged?.Invoke(this, new OnSelectedCounterChangedEventArgs {
+                selectedCounter = selectedCounter
+            });
+        }
+
+    public Transform GetKitchenFollowTransform() {
+        return kitchenObjectHoldPoint;
+    }
+
+    public void SetKitchenObject(KitchenObject kitchenObject) {
+
+        this.kitchenObject = kitchenObject;
+
+        if (kitchenObject != null) {
+            OnPickupSound?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public KitchenObject GetKitchenObject() {
+        return kitchenObject;
+    }
+
+    public void ClearKitchenObject() {
+        kitchenObject = null;
+    }
+
+    public bool HasKitchenObject() {
+        return kitchenObject != null;
+    }
+}
+
+

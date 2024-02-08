@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d53e48fe74c1bd4fa0adc8aa8486df2, type: 3}
+  m_Name: MeatPattyUncooked-Cooked
+  m_EditorClassIdentifier: 
+  input: {fileID: 11400000, guid: 3ddd6ce84a2e2da47804208baba30142, type: 2}
+  output: {fileID: 11400000, guid: f3e38012781b1a244808ad06273aa4d8, type: 2}
+  cookingProgressMax: 5
